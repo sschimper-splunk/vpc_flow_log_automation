@@ -30,15 +30,20 @@ def create_firehose_delivery_stream(region, delivery_stream_name):
                                         )
         print(f"Created Kinesis Firehose Delivery Stream called {delivery_stream_name} for region {region}")
     except Exception as e:
-        print(str(e))
+        print(f"{str(e)} - Skipping creation ...")
+        # print(f"Kinesis Firehose DataStream with name {delivery_stream_name} in region {region} already exists. Skipping creation.")
+        return
 
 # Delte Firehose Delivery Stream
 def delete_firehose_delivery_stream(region, delivery_stream_name):
     this_client = boto3.client("firehose", region_name=region)
-    this_client.delete_delivery_stream(
-                                        DeliveryStreamName=delivery_stream_name,
-                                    )
-    print(f"Deleted Kinesis Firehose Delivery Stream called {delivery_stream_name} for region {region}")
+    try:
+        this_client.delete_delivery_stream(
+                                            DeliveryStreamName=delivery_stream_name,
+                                        )
+        print(f"Deleted Kinesis Firehose Delivery Stream called {delivery_stream_name} for region {region}")
+    except Exception as e:
+        print(f"{str(e)} - Skipping deletion of Kinesis Firehose Delivery Stream in region {region} ...")
 
 # Get Firehose Delivery Stream ARN
 def get_firehose_delivery_stream_arn(region, name):
@@ -87,19 +92,23 @@ def get_vpcs(region):
 # Create VPC Flow Logs for a given VPC in a region 
 def create_vpc_low_logs(region, vpc, data_stream_arn):
     this_client = boto3.client("ec2", region_name=region)
-    response = this_client.create_flow_logs(
-                                DryRun=False,
-                                ResourceType='VPC',
-                                TrafficType="ALL",
-                                ResourceIds=[
-                                    vpc["VpcId"]
-                                ],
-                                LogDestination=data_stream_arn,
-                                LogDestinationType='kinesis-data-firehose'
-                                )
-    vpc_id = vpc["VpcId"]
-    flow_log_id = response["FlowLogIds"].pop()
-    print(f"Created Flow Logs for VPC {vpc_id} with ID {flow_log_id} for region {region}")
+    try:
+        response = this_client.create_flow_logs(
+                                    DryRun=False,
+                                    ResourceType='VPC',
+                                    TrafficType="ALL",
+                                    ResourceIds=[
+                                        vpc["VpcId"]
+                                    ],
+                                    LogDestination=data_stream_arn,
+                                    LogDestinationType='kinesis-data-firehose'
+                                    )
+        vpc_id = vpc["VpcId"]
+        flow_log_id = response["FlowLogIds"].pop()
+        print(f"Created Flow Logs for VPC {vpc_id} with ID {flow_log_id} for region {region}")
+    except Exception as e:
+        print(f"{str(e)} - Skipping creation ...")
+        return
     
 # Delete VPC Flow Logs for a given VPC in a region
 def delete_vpc_low_logs(region, vpc):
@@ -107,11 +116,14 @@ def delete_vpc_low_logs(region, vpc):
     flow_log_id = get_flow_log_id(region, vpc)
     if not flow_log_id:
         return
-    this_client.delete_flow_logs(
-                                DryRun=False,
-                                FlowLogIds = [
-                                    flow_log_id
-                                ]
-                                )
-    vpc_id = vpc["VpcId"]
-    print(f"Deleted Flow Logs for VPC {vpc_id} with ID {flow_log_id} for region {region}")
+    try:
+        this_client.delete_flow_logs(
+                                    DryRun=False,
+                                    FlowLogIds = [
+                                        flow_log_id
+                                    ]
+                                    )
+        vpc_id = vpc["VpcId"]
+        print(f"Deleted Flow Logs for VPC {vpc_id} with ID {flow_log_id} for region {region}")
+    except Exception as e:
+        print(f"{str(e)} - Skipping deletion for VPC Flow Logs in region {region} ...")
