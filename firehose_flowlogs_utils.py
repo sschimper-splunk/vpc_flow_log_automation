@@ -2,6 +2,25 @@ import logging
 import boto3
 from botocore.exceptions import ClientError
 
+# Get the account ID in which the script is executed
+def get_caller_identity():
+    return boto3.client('sts').get_caller_identity().get('Account')
+
+def print_header(delete):
+    account_id = get_caller_identity()
+    if(delete):
+        print(f"Deleting the following resources for account '{account_id}':")
+    else:
+        print(f"Creating the following resources for account '{account_id}':")
+    print("-----------------------------------------------------------------")
+
+def print_footer(delete):
+    if(delete):
+        print(f"Deletion completed!")
+    else:
+        print(f"Creation completed!")
+    print("\n")
+
 # Get all supported AWS Regions and Availability Zones
 def get_aws_azs():
     client = boto3.client("ec2")
@@ -28,7 +47,7 @@ def create_firehose_delivery_stream(region, delivery_stream_name):
                                                         }
                                             }
                                         )
-        print(f"Created Kinesis Firehose Delivery Stream called {delivery_stream_name} for region {region}")
+        print(f"Created Kinesis Firehose Delivery Stream called '{delivery_stream_name}' for region {region}")
     except Exception as e:
         print(f"{str(e)} - Skipping creation ...")
         # print(f"Kinesis Firehose DataStream with name {delivery_stream_name} in region {region} already exists. Skipping creation.")
