@@ -16,7 +16,6 @@ def log_header(delete):
         print(f"Deleting the following resources for account '{account_id}':")
     else:
         print(f"Creating the following resources for account '{account_id}':")
-    print("------------------------------------------------------------------")
     
 
 def log_footer(delete):
@@ -31,49 +30,17 @@ def get_aws_azs():
     client = boto3.client("ec2")
     return [region['RegionName'] for region in client.describe_regions()['Regions']]
 
-def create_splunk_flowlogs_processor_lambda(region):
-    this_client = boto3.client('serverlessrepo', region_name=region)
-    try:
-        this_client.create_application(
-            Author='Splunk',
-            Description='Data transformation function to stream VPC Flowlogs to Splunk via Firehose',
-            Name='splunk-firehose-flowlogs-processor',
-        )
-        print(f"splunk-firehose-flowlogs-processor app created for region {region}")
-    except Exception as e:
-        print(f"{str(e)} - Skipping creation of splunk-firehose-flowlogs-processor app in region {region} ...")
-
-def delete_splunk_flowlogs_processor_lambda(region):
-    this_client = boto3.client('serverlessrepo', region_name=region)
-    apps = this_client.list_applications()
-    apps = apps['Applications']
-    app_id = None
-    for app in apps:
-        if(app['Name'] == 'splunk-firehose-flowlogs-processor'):
-            app_id = app['ApplicationId']
-            break
-    
-    if app_id is None:
-        print(f"splunk-firehose-flowlogs-processor app not found ... Skipping deletion. for region {region}...")
-        return
-
-    this_client.delete_application(
-        ApplicationId = app_id
-    )
-    print("splunk-firehose-flowlogs-processor app deleted")
-
 # Create Firehose Delivery Stream
 def create_firehose_delivery_stream(region, delivery_stream_name):
-    # create_splunk_flowlogs_processor_lambda(region)
     this_client = boto3.client("firehose", region_name=region)
     try:
         this_client.create_delivery_stream(
                                             DeliveryStreamName=delivery_stream_name,
                                             DeliveryStreamType='DirectPut',
                                             SplunkDestinationConfiguration={
-                                                        'HECEndpoint': 'https://i-0e4e753b5c2c4253b.splunk.show:8088/services/collector',
+                                                        'HECEndpoint': 'http://10.202.21.122:8088/services/collector',
                                                         'HECEndpointType': 'Event',
-                                                        'HECToken': 'f474a916-b01a-4a35-9303-a13753dc3c2e',
+                                                        'HECToken': '9e29656e-ebe4-477d-a885-39837317fcc8',
                                                         'HECAcknowledgmentTimeoutInSeconds': 180,
                                                         'RetryOptions': {
                                                             'DurationInSeconds': 123
@@ -81,32 +48,6 @@ def create_firehose_delivery_stream(region, delivery_stream_name):
                                                         'S3Configuration': {
                                                             'RoleARN': 'arn:aws:iam::029977037364:role/Boto3Role',
                                                             'BucketARN': 'arn:aws:s3:::firehose-splunk-backupd' # hardcoded
-                                                        },
-                                                        'ProcessingConfiguration': {
-                                                            'Enabled': True,
-                                                            'Processors': [
-                                                                {
-                                                                    'Type': 'Lambda',
-                                                                    'Parameters': [
-                                                                            {
-                                                                                'ParameterName' : 'LambdaArn',
-                                                                                'ParameterValue' : 'arn:aws:lambda:eu-west-1:029977037364:function:aws-controltower-NotificationForwarder:$LATEST'
-                                                                            },
-                                                                            {
-                                                                                'ParameterName' : 'RoleArn',
-                                                                                'ParameterValue' : 'arn:aws:iam::029977037364:role/AdminAccess'
-                                                                            },
-                                                                            {
-                                                                                'ParameterName' : 'BufferSizeInMBs',
-                                                                                'ParameterValue' : '1'
-                                                                            },
-                                                                            {
-                                                                                'ParameterName' : 'BufferIntervalInSeconds',
-                                                                                'ParameterValue' : '60'
-                                                                            }
-                                                                    ]
-                                                                },
-                                                            ]
                                                         }
                                             }
                                         )
@@ -118,7 +59,6 @@ def create_firehose_delivery_stream(region, delivery_stream_name):
 
 # Delte Firehose Delivery Stream
 def delete_firehose_delivery_stream(region, delivery_stream_name):
-    # delete_splunk_flowlogs_processor_lambda(region)
     this_client = boto3.client("firehose", region_name=region)
     try:
         this_client.delete_delivery_stream(
@@ -184,13 +124,8 @@ def create_vpc_low_logs(region, vpc, data_stream_arn):
                                         vpc["VpcId"]
                                     ],
                                     LogDestination=data_stream_arn,
-                                    LogDestinationType='kinesis-data-firehose',
-                                    MaxAggregationInterval=60,
-                                    TagSpecifications=[
-                                       {"ResourceType": "vpc-flow-log", "Tags": [{"Key": "Name", "Value": "SplunkVPCFlowFLogs"}]} 
-                                    ]
+                                    LogDestinationType='kinesis-data-firehose'
                                     )
-        
         vpc_id = vpc["VpcId"]
         flow_log_id = response["FlowLogIds"].pop()
         print(f"Created Flow Logs for VPC {vpc_id} with ID {flow_log_id} for region {region}")
