@@ -1,17 +1,18 @@
-# def lambda_handler(event, context):
-import firehose_flowlogs_utils as utils
+import firehose_flowlogs_utils as aws
+import splunk_utils as splunk
+
+splunk_ip = "10.202.39.176"
+splunk_hec_token = splunk.splunk_create_hec(splunk_ip, name="boto3_test", index="main")
 
 firehose_delivery_stream_name = "Splunk"
 
-utils.log_header(delete=False)
+aws.log_header(delete=False)
 
-regions = utils.get_aws_azs()
+regions = aws.get_aws_azs()
 for region in regions:
-    if(region != "eu-west-1"):
-        continue
-    utils.create_firehose_delivery_stream(region, firehose_delivery_stream_name)
-    vpcs = utils.get_vpcs(region)
+    aws.create_firehose_delivery_stream(region, firehose_delivery_stream_name, splunk_ip, splunk_hec_token)
+    vpcs = aws.get_vpcs(region)
     for vpc in vpcs:
-        utils.create_vpc_low_logs(region, vpc, utils.get_firehose_delivery_stream_arn(region, firehose_delivery_stream_name))
+        aws.create_vpc_low_logs(region, vpc, aws.get_firehose_delivery_stream_arn(region, firehose_delivery_stream_name))
 
-utils.log_footer(delete=False)
+aws.log_footer(delete=False)

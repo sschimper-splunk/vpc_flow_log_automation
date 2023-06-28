@@ -13,12 +13,11 @@ def get_caller_identity():
 def log_header(delete):
     account_id = get_caller_identity()
     if(delete):
-        print(f"Deleting the following resources for account '{account_id}':")
+        print(f"Deleting the following AWS resources for account '{account_id}':")
     else:
-        print(f"Creating the following resources for account '{account_id}':")
+        print(f"Creating the following AWS resources for account '{account_id}':")
     print("------------------------------------------------------------------")
     
-
 def log_footer(delete):
     account_id = get_caller_identity()
     if(delete):
@@ -63,7 +62,7 @@ def delete_splunk_flowlogs_processor_lambda(region):
     print("splunk-firehose-flowlogs-processor app deleted")
 
 # Create Firehose Delivery Stream
-def create_firehose_delivery_stream(region, delivery_stream_name):
+def create_firehose_delivery_stream(region, delivery_stream_name, splunk_base_url, splunk_hec_token):
     # create_splunk_flowlogs_processor_lambda(region)
     this_client = boto3.client("firehose", region_name=region)
     try:
@@ -71,18 +70,18 @@ def create_firehose_delivery_stream(region, delivery_stream_name):
                                             DeliveryStreamName=delivery_stream_name,
                                             DeliveryStreamType='DirectPut',
                                             SplunkDestinationConfiguration={
-                                                        'HECEndpoint': 'https://i-0e4e753b5c2c4253b.splunk.show:8088/services/collector',
-                                                        'HECEndpointType': 'Event',
-                                                        'HECToken': 'f474a916-b01a-4a35-9303-a13753dc3c2e',
+                                                        'HECEndpoint': f'https://{splunk_base_url}:8088/services/collector',
+                                                        'HECEndpointType': 'Raw',
+                                                        'HECToken': splunk_hec_token,
                                                         'HECAcknowledgmentTimeoutInSeconds': 180,
                                                         'RetryOptions': {
-                                                            'DurationInSeconds': 123
+                                                            'DurationInSeconds': 300
                                                         },
                                                         'S3Configuration': {
                                                             'RoleARN': 'arn:aws:iam::029977037364:role/Boto3Role',
                                                             'BucketARN': 'arn:aws:s3:::firehose-splunk-backupd' # hardcoded
                                                         },
-                                                        'ProcessingConfiguration': {
+                                                         'ProcessingConfiguration': {
                                                             'Enabled': True,
                                                             'Processors': [
                                                                 {
@@ -90,7 +89,7 @@ def create_firehose_delivery_stream(region, delivery_stream_name):
                                                                     'Parameters': [
                                                                             {
                                                                                 'ParameterName' : 'LambdaArn',
-                                                                                'ParameterValue' : 'arn:aws:lambda:eu-west-1:029977037364:function:aws-controltower-NotificationForwarder:$LATEST'
+                                                                                'ParameterValue' : 'arn:aws:lambda:eu-west-1:029977037364:function:serverlessrepo-splunk-fir-SplunkFirehoseFlowlogsPr-4nPwKXdSMAPs'
                                                                             },
                                                                             {
                                                                                 'ParameterName' : 'RoleArn',
@@ -107,7 +106,7 @@ def create_firehose_delivery_stream(region, delivery_stream_name):
                                                                     ]
                                                                 },
                                                             ]
-                                                        }
+                                                        }                                                       
                                             }
                                         )
         print(f"Created Kinesis Firehose Delivery Stream called '{delivery_stream_name}' for region {region}")
